@@ -1,0 +1,7 @@
+{
+  "name": "Christopher",
+  "title": "",
+  "port": 8080,
+  "default_status": "in",
+  "allow_remote_admin": false
+}
