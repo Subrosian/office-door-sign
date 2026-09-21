@@ -12,6 +12,7 @@ STATUSES = {
     "out": ("OUT OF OFFICE", "Currently away"),
     "meeting": ("IN A MEETING", "Please do not disturb"),
     "dnd": ("DO NOT DISTURB", "Please check back later"),
+    "wfh": ("WORKING FROM HOME", "Contact me if needed"),
 }
 
 def load_json(path, default):
