@@ -1,2 +1,40 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>Office Sign Controls</title><link rel="stylesheet" href="/static/style.css"></head>
-<body class="admin"><main><h1>Office Sign</h1><p class="hint">Choose a status, optionally add a message or return time, then tap Update.</p><form id="statusForm"><div class="status-grid">{% for key, val in statuses.items() %}<button type="button" class="status-choice" data-status="{{key}}">{{val[0]}}</button>{% endfor %}</div><input type="hidden" name="status" id="status" value="in"><label>Message<input name="message" id="messageInput" maxlength="160" placeholder="Optional message"></label><label>Return time<input name="return_time" id="returnInput" maxlength="80" placeholder="e.g. Back at 2:30 PM"></label><button class="update" type="submit">Update Sign</button><a class="back" href="/">← Back to sign</a></form></main><script src="/static/admin.js"></script></body></html>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+  <title>Office Sign Controls</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="admin">
+  <main>
+    <h1>Office Sign</h1>
+    <p class="hint">Choose a status, optionally add a message or return time, then tap Update.</p>
+
+    <div class="device-info">
+      <div>
+        <span>Device IP</span>
+        <strong>{{ local_ip }}</strong>
+      </div>
+      <div>
+        <span>Remote Admin</span>
+        <strong>{% if local_ip != 'Unavailable' %}http://{{ local_ip }}:{{ port }}/admin{% else %}Unavailable{% endif %}</strong>
+      </div>
+    </div>
+
+    <form id="statusForm">
+      <div class="status-grid">
+        {% for key, val in statuses.items() %}
+        <button type="button" class="status-choice" data-status="{{key}}">{{val[0]}}</button>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="status" id="status" value="in">
+      <label>Message<input name="message" id="messageInput" maxlength="160" placeholder="Optional message"></label>
+      <label>Return time<input name="return_time" id="returnInput" maxlength="80" placeholder="e.g. Back at 2:30 PM"></label>
+      <button class="update" type="submit">Update Sign</button>
+      <a class="back" href="/">← Back to sign</a>
+    </form>
+  </main>
+  <script src="/static/admin.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from pathlib import Path
-import json, os, tempfile
+import json, os, socket, tempfile
 
 BASE = Path(__file__).resolve().parent.parent
 CONFIG_PATH = Path(os.environ.get('OFFICE_SIGN_CONFIG', BASE / 'config.json'))
@@ -31,13 +31,26 @@ def save_json(path, data):
 config = load_json(CONFIG_PATH, DEFAULT_CONFIG)
 app = Flask(__name__)
 
+def get_local_ip():
+    """Return the primary LAN address used by this Pi, if available."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # No traffic needs to be sent; connect() lets the OS choose the
+        # interface/address it would use for an outbound connection.
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return "Unavailable"
+    finally:
+        sock.close()
+
 @app.get('/')
 def sign():
     return render_template('index.html', config=config)
 
 @app.get('/admin')
 def admin():
-    return render_template('admin.html', config=config, statuses=STATUSES)
+    return render_template('admin.html', config=config, statuses=STATUSES, local_ip=get_local_ip(), port=int(config.get('port', 8080)))
 
 @app.get('/api/state')
 def get_state():
