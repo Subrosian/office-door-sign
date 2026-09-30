@@ -8,9 +8,22 @@
 </head>
 <body class="admin">
   <main>
-    <h1>Office Sign</h1>
-    <p class="hint">Choose a status, optionally add a message or return time, then tap Update.</p>
-
+    <div class="admin-header">
+      <div class="admin-heading">
+        <h1>Office Sign</h1>
+        <p class="hint">Choose a status, optionally add a message or return time.</p>
+      </div>
+      <div class="admin-actions">
+        <a class="icon-button cancel" href="/" aria-label="Cancel" title="Cancel">
+          <span class="action-icon" aria-hidden="true">✕</span>
+          <span class="button-label">Cancel</span>
+        </a>
+        <button class="icon-button save" type="submit" form="statusForm" aria-label="Save" title="Save">
+          <span class="action-icon" aria-hidden="true">✓</span>
+          <span class="button-label">Save</span>
+        </button>
+      </div>
+    </div>
     <div class="device-info">
       <div>
         <span>Device IP</span>
@@ -21,7 +34,6 @@
         <strong>{% if local_ip != 'Unavailable' %}http://{{ local_ip }}:{{ port }}/admin{% else %}Unavailable{% endif %}</strong>
       </div>
     </div>
-
     <form id="statusForm">
       <div class="status-grid">
         {% for key, val in statuses.items() %}
@@ -31,8 +43,6 @@
       <input type="hidden" name="status" id="status" value="in">
       <label>Message<input name="message" id="messageInput" maxlength="160" placeholder="Optional message"></label>
       <label>Return time<input name="return_time" id="returnInput" maxlength="80" placeholder="e.g. Back at 2:30 PM"></label>
-      <button class="update" type="submit">Update Sign</button>
-      <a class="back" href="/">← Back to sign</a>
     </form>
   </main>
   <script src="/static/admin.js"></script>
