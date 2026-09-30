@@ -76,7 +76,16 @@ function openKeyboard(input){
 	keyboard.setAttribute('aria-hidden','false');
 	document.body.classList.add('keyboard-open');
 	renderKeyboard();
-	setTimeout(()=>input.scrollIntoView({behavior:'smooth',block:'center'}),50);
+	setTimeout(()=>{
+		const keyboardTop=keyboard.getBoundingClientRect().top;
+		const fieldRect=input.getBoundingClientRect();
+		const safeBottom=keyboardTop-20;
+		if(fieldRect.bottom>safeBottom){
+			window.scrollBy({top:fieldRect.bottom-safeBottom,behavior:'smooth'});
+		}else if(fieldRect.top<12){
+			window.scrollBy({top:fieldRect.top-12,behavior:'smooth'});
+		}
+	},220);
 }
 
 function closeKeyboard(){
