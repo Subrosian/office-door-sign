@@ -49,6 +49,13 @@
       <label>Return time<input name="return_time" id="returnInput" maxlength="80" placeholder="e.g. Back at 2:30 PM"></label>
     </form>
   </main>
+  <div class="onscreen-keyboard" id="onscreenKeyboard" aria-hidden="true">
+    <div class="keyboard-toolbar">
+      <strong id="keyboardFieldLabel">Keyboard</strong>
+      <button type="button" class="keyboard-done" data-key="done">Done</button>
+    </div>
+    <div class="keyboard-keys" id="keyboardKeys"></div>
+  </div>
   <script src="/static/admin.js"></script>
 </body>
 </html>
