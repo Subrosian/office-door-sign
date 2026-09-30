@@ -58,7 +58,7 @@ sudo systemctl restart office-sign.service
 
 ## Using the sign
 
-The display is at `http://127.0.0.1:8080/`. Tap the subtle gear in the lower-right corner to open `/admin`, choose a status, add an optional message/return time, and tap the **Save** button at the top of the screen. Tap **Cancel** to return to the sign without saving.
+The display is at `http://127.0.0.1:8080/`. Tap the subtle gear in the lower-right corner to open `/admin`, choose a status, add an optional message/return time, and tap the **Save** button at the top of the screen. Tap **Cancel** to return to the sign without saving. Tap **Update** to run `scripts/update.sh`; the display will restart briefly when the update finishes.
 
 `allow_remote_admin` defaults to `false`, so the app binds only to localhost. Remote/LAN administration is intentionally not enabled in v1 because it should have authentication before being exposed to the network.
 
