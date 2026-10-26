@@ -6,6 +6,7 @@ import re
 import threading
 import time
 import uuid
+import hashlib
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from contextlib import contextmanager
@@ -37,6 +38,20 @@ def save_json(path, data):
     os.replace(tmp, path)
 config = load_json(CONFIG_PATH, DEFAULT_CONFIG)
 app = Flask(__name__)
+
+@app.context_processor
+def asset_urls():
+    def asset_url(filename):
+        fingerprint = hashlib.sha256((Path(app.static_folder) / filename).read_bytes()).hexdigest()[:12]
+        return url_for('static', filename=filename, v=fingerprint)
+    return {'asset_url': asset_url}
+
+@app.after_request
+def prevent_stale_pages(response):
+    if request.endpoint != 'static':
+        response.headers['Cache-Control'] = 'no-store'
+    return response
+
 scheduler_thread = None
 scheduler_pid = None
 scheduler_start_minute = None

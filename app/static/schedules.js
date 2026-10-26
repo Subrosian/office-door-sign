@@ -1,6 +1,20 @@
 const schedulesDialog = document.getElementById('schedulesDialog');
 const scheduleRows = document.getElementById('scheduleRows');
 const scheduleError = document.getElementById('scheduleError');
+// An admin tab can stay open across a software update. Older markup may
+// lack the diagnostic fields added by this version of the script.
+function ensureScheduleMessage(id, anchor) {
+    let element = document.getElementById(id);
+    if (!element) {
+        element = document.createElement('p');
+        element.id = id;
+        element.setAttribute('role', 'status');
+        anchor.after(element);
+    }
+    return element;
+}
+const schedulerHealth = ensureScheduleMessage('schedulerHealth', document.getElementById('scheduleTimezone'));
+const scheduleNotice = ensureScheduleMessage('scheduleNotice', document.getElementById('schedulesButton'));
 const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const timezoneSelect = document.getElementById('scheduleTimezoneSelect');
 const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -17,12 +31,14 @@ function updateScheduleDiagnostics(data) {
     serverOffset = data.current_time.slice(-6);
     const health = data.scheduler || {};
     const current = buttons.find(button => button.dataset.status === data.status)?.textContent || data.status;
-    document.getElementById('schedulerHealth').textContent = health.error
+    schedulerHealth.textContent = health.error
         ? `Scheduler error: ${health.error}`
         : `Current sign: ${current}. ${health.running ? 'Background scheduler running.' : 'Background scheduler unavailable; sign refresh checks are active.'}`;
     [...scheduleRows.children].forEach(row => {
         const lastRun = data.last_runs?.[row.dataset.id];
-        row.querySelector('.schedule-last-run').textContent = lastRun
+        const lastRunLabel = row.querySelector('.schedule-last-run');
+        if (!lastRunLabel) return;
+        lastRunLabel.textContent = lastRun
             ? `Last ran: ${lastRun.replace('T', ' ')}` : 'Has not run yet.';
     });
     showScheduleClock();
@@ -35,7 +51,7 @@ async function refreshScheduleDiagnostics() {
         if (!response.ok) throw new Error('Could not check scheduler.');
         updateScheduleDiagnostics(await response.json());
     } catch (error) {
-        document.getElementById('schedulerHealth').textContent = 'Cannot reach scheduler. Check the connection to the sign.';
+        schedulerHealth.textContent = 'Cannot reach scheduler. Check the connection to the sign.';
     }
 }
 setInterval(refreshScheduleDiagnostics, 2000);
@@ -141,7 +157,7 @@ document.getElementById('schedulesForm').onsubmit = async event => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not save schedules.');
         schedulesDialog.close();
-        document.getElementById('scheduleNotice').textContent = 'Schedules saved. Status changes will run when their selected time arrives.';
+        scheduleNotice.textContent = 'Schedules saved. Status changes will run when their selected time arrives.';
     } catch (error) { scheduleError.textContent = error.message; }
     finally { save.disabled = false; }
 };
