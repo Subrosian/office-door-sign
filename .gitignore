@@ -1,3 +1,4 @@
 .DS_Store
 update-status.json
 update-status.lock
+/tests
