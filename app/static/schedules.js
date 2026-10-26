@@ -30,6 +30,15 @@ function updateScheduleDiagnostics(data) {
     timeReceived = Date.now();
     serverOffset = data.current_time.slice(-6);
     const health = data.scheduler || {};
+    if (data.api_version !== 2 || !data.scheduler || typeof data.status !== 'string') {
+        schedulerHealth.textContent = 'The server is running an older version of the app. On the Pi, run: sudo systemctl restart office-sign.service, then reload this page. Schedule execution cannot be verified until the server restarts.';
+        [...scheduleRows.children].forEach(row => {
+            const label = row.querySelector('.schedule-last-run');
+            if (label) label.textContent = 'Run history unavailable until the server restarts.';
+        });
+        showScheduleClock();
+        return;
+    }
     const current = buttons.find(button => button.dataset.status === data.status)?.textContent || data.status;
     schedulerHealth.textContent = health.error
         ? `Scheduler error: ${health.error}`

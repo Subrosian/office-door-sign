@@ -111,6 +111,18 @@ systemctl status office-sign.service
 journalctl -u office-sign.service -n 100 --no-pager
 ```
 
+If the admin page reports an older server version after an update, restart
+the backend on the Pi and reload the browser:
+
+```bash
+sudo systemctl restart office-sign.service
+```
+
+JavaScript and templates are read from disk, while Python code remains loaded
+until the service restarts. An incomplete update can therefore show newer
+controls with an older API. If updating from the admin screen fails to restart
+the service, check `/tmp/office-door-sign-update.log` on the Pi for the error.
+
 Test the site locally:
 
 ```bash

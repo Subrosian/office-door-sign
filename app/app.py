@@ -131,7 +131,7 @@ def schedules():
         with schedule_lock():
             saved = load_json(SCHEDULE_PATH, {'schedules': []})
         now = schedule_now(saved)
-        return jsonify({'schedules': saved['schedules'], 'timezone': saved.get('timezone', ''),
+        return jsonify({'api_version': 2, 'schedules': saved['schedules'], 'timezone': saved.get('timezone', ''),
                         'current_time': now.isoformat(), 'fired': saved.get('fired', {}),
                         'last_runs': saved.get('last_runs', {}),
                         'scheduler': {'running': scheduler_thread is not None and scheduler_thread.is_alive(),
