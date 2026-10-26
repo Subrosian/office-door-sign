@@ -174,13 +174,19 @@ def schedules():
         cleaned.append({'id': ident, 'days': sorted(set(days)), 'time': clock_time, 'status': status})
     with schedule_lock():
         saved = load_json(SCHEDULE_PATH, {'fired': {}})
+        previous = {item['id']: item for item in saved.get('schedules', [])}
+        timezone_changed = timezone is not None and timezone != saved.get('timezone', '')
         if timezone is not None:
             saved['timezone'] = timezone
         # Saving is never a trigger, even if a new event matches this minute.
         now = schedule_now(saved)
         today = now.date().isoformat()
         current = now.strftime('%H:%M')
-        fired = {item['id']: saved['fired'][item['id']] for item in cleaned if item['id'] in saved['fired']}
+        # A daily marker belongs to the saved event definition. Rearm edited
+        # events, otherwise moving a row later today keeps it suppressed.
+        fired = {item['id']: saved['fired'][item['id']] for item in cleaned
+                 if item['id'] in saved['fired'] and previous.get(item['id']) == item
+                 and not timezone_changed}
         for item in cleaned:
             if item['time'] == current:
                 fired[item['id']] = today
