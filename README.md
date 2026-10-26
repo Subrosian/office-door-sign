@@ -71,7 +71,11 @@ at **5:00 PM, Monday through Friday**. You can edit or remove rows in the same
 window; Cancel discards schedule edits. Schedules save separately from the
 main status form.
 
-Times use the Raspberry Pi's configured local timezone. The backend runs each
+Choose a **Schedule timezone** (for example, `America/New_York` for Eastern
+time). The default remains the Raspberry Pi's system timezone for existing
+schedules. The editor shows the scheduler's current day and time so you can
+check it before saving. This setting is independent of the browser's clock.
+The backend runs each
 event once when its minute arrives, even if the admin screen is closed. It
 does not replay missed times after downtime or apply schedules immediately
 when saved. A manual status change remains until another scheduled event.

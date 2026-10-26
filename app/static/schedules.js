@@ -2,6 +2,34 @@ const schedulesDialog = document.getElementById('schedulesDialog');
 const scheduleRows = document.getElementById('scheduleRows');
 const scheduleError = document.getElementById('scheduleError');
 const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const timezoneSelect = document.getElementById('scheduleTimezoneSelect');
+const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const timezones = new Set(['UTC', browserTimezone]);
+if (Intl.supportedValuesOf) Intl.supportedValuesOf('timeZone').forEach(zone => timezones.add(zone));
+[...timezones].sort().forEach(zone => timezoneSelect.add(new Option(zone.replaceAll('_', ' '), zone)));
+let serverTime = 0;
+let timeReceived = 0;
+let serverOffset = '';
+
+function showScheduleClock() {
+    if (!schedulesDialog.open) return;
+    const now = new Date(serverTime + Date.now() - timeReceived);
+    const timezone = timezoneSelect.value;
+    let text;
+    if (timezone) {
+        text = now.toLocaleString([], {timeZone: timezone, weekday: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short'});
+    } else {
+        // Preserve the server's local offset instead of formatting in the browser's timezone.
+        const offset = serverOffset === 'Z' ? 0 : (serverOffset[0] === '-' ? -1 : 1) *
+            (Number(serverOffset.slice(1, 3)) * 60 + Number(serverOffset.slice(4, 6)));
+        text = new Date(now.getTime() + offset * 60000).toLocaleString([], {
+            timeZone: 'UTC', weekday: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit'
+        }) + ` (UTC${serverOffset})`;
+    }
+    document.getElementById('scheduleTimezone').textContent = `Scheduler time: ${text}`;
+}
+timezoneSelect.onchange = showScheduleClock;
+setInterval(showScheduleClock, 1000);
 
 function addScheduleRow(item = {days: [0, 1, 2, 3, 4], time: '17:00', status: 'out'}) {
     const row = document.createElement('fieldset');
@@ -50,9 +78,17 @@ document.getElementById('schedulesButton').onclick = async () => {
         const response = await fetch('/api/schedules', {cache: 'no-store'});
         if (!response.ok) throw new Error('Could not load schedules.');
         const data = await response.json();
-        document.getElementById('scheduleTimezone').textContent = `Uses the Pi’s local time (${data.timezone}).`;
+        serverTime = Date.parse(data.current_time);
+        timeReceived = Date.now();
+        serverOffset = data.current_time.slice(-6);
+        const timezone = data.timezone || '';
+        if (timezone && ![...timezoneSelect.options].some(option => option.value === timezone)) {
+            timezoneSelect.add(new Option(timezone, timezone));
+        }
+        timezoneSelect.value = timezone;
         data.schedules.forEach(addScheduleRow);
         schedulesDialog.showModal();
+        showScheduleClock();
     } catch (error) { alert(error.message); }
 };
 document.getElementById('addSchedule').onclick = () => addScheduleRow();
@@ -70,7 +106,8 @@ document.getElementById('schedulesForm').onsubmit = async event => {
     scheduleError.textContent = '';
     try {
         const response = await fetch('/api/schedules', {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({schedules})
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({schedules, timezone: timezoneSelect.value})
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not save schedules.');

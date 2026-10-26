@@ -43,6 +43,9 @@
       <form id="schedulesForm">
         <h2 id="schedulesTitle">Automatic status schedules</h2>
         <p id="scheduleTimezone"></p>
+        <label>Schedule timezone<select id="scheduleTimezoneSelect">
+          <option value="">Pi system timezone</option>
+        </select></label>
         <p>Runs once when the selected time arrives. Missed times are skipped. Scheduled changes clear the message and return time.</p>
         <div id="scheduleRows"></div>
         <p id="scheduleError" role="alert"></p>

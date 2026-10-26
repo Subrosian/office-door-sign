@@ -7,6 +7,7 @@ import threading
 import time
 import uuid
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from contextlib import contextmanager
 BASE = Path(__file__).resolve().parent.parent
 CONFIG_PATH = Path(os.environ.get('OFFICE_SIGN_CONFIG', BASE / 'config.json'))
@@ -44,10 +45,15 @@ def schedule_lock():
         fcntl.flock(lock, fcntl.LOCK_EX)
         yield
 
-def apply_schedules(now):
+def schedule_now(saved):
+    timezone = saved.get('timezone')
+    return datetime.now(ZoneInfo(timezone)) if timezone else datetime.now().astimezone()
+
+def apply_schedules(now=None):
     """Run only events matching this minute; never replay missed events."""
     with schedule_lock():
         saved = load_json(SCHEDULE_PATH, {'schedules': [], 'fired': {}})
+        now = now if now is not None else schedule_now(saved)
         changed = False
         for item in saved['schedules']:
             if (now.weekday() in item['days'] and now.strftime('%H:%M') == item['time']
@@ -68,7 +74,7 @@ def scheduler_loop():
         if minute != previous:
             previous = minute
             try:
-                apply_schedules(now)
+                apply_schedules()
             except Exception:
                 app.logger.exception('Could not apply schedules')
 
@@ -79,11 +85,22 @@ def schedules():
     if request.method == 'GET':
         with schedule_lock():
             saved = load_json(SCHEDULE_PATH, {'schedules': []})
-        return jsonify({'schedules': saved['schedules'], 'timezone': time.tzname[0]})
+        now = schedule_now(saved)
+        return jsonify({'schedules': saved['schedules'], 'timezone': saved.get('timezone', ''),
+                        'current_time': now.isoformat(), 'fired': saved.get('fired', {})})
     data = request.get_json(silent=True)
     items = data.get('schedules') if isinstance(data, dict) else None
     if not isinstance(items, list) or len(items) > 100:
         return jsonify({'error': 'Provide at most 100 schedules'}), 400
+    timezone = data.get('timezone')
+    if timezone is not None:
+        if not isinstance(timezone, str):
+            return jsonify({'error': 'Choose a valid timezone'}), 400
+        if timezone:
+            try:
+                ZoneInfo(timezone)
+            except (ZoneInfoNotFoundError, ValueError):
+                return jsonify({'error': 'Choose a valid timezone'}), 400
     cleaned = []
     occupied = set()
     ids = set()
@@ -108,15 +125,17 @@ def schedules():
         cleaned.append({'id': ident, 'days': sorted(set(days)), 'time': clock_time, 'status': status})
     with schedule_lock():
         saved = load_json(SCHEDULE_PATH, {'fired': {}})
+        if timezone is not None:
+            saved['timezone'] = timezone
         # Saving is never a trigger, even if a new event matches this minute.
-        now = datetime.now()
+        now = schedule_now(saved)
         today = now.date().isoformat()
         current = now.strftime('%H:%M')
         fired = {item['id']: saved['fired'][item['id']] for item in cleaned if item['id'] in saved['fired']}
         for item in cleaned:
             if item['time'] == current:
                 fired[item['id']] = today
-        save_json(SCHEDULE_PATH, {'schedules': cleaned, 'fired': fired})
+        save_json(SCHEDULE_PATH, {'schedules': cleaned, 'fired': fired, 'timezone': saved.get('timezone', '')})
     return jsonify({'schedules': cleaned})
 def get_local_ip():
     """Return the primary LAN address used by this Pi, if available."""
