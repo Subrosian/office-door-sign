@@ -83,6 +83,11 @@ Scheduled changes clear the message and return time. Conflicting schedules
 for the same day and time are rejected. Schedules survive restarts in
 `schedules.json` (override with `OFFICE_SIGN_SCHEDULES`).
 
+The sign also checks schedules during its two-second status refresh, as a
+fallback to the background scheduler. The Schedules window shows the current
+sign status, scheduler errors, and when each saved schedule last ran. These
+details refresh while the window is open. A confirmation appears after saving.
+
 ## Update
 
 ```bash

@@ -37,6 +37,12 @@ def save_json(path, data):
     os.replace(tmp, path)
 config = load_json(CONFIG_PATH, DEFAULT_CONFIG)
 app = Flask(__name__)
+scheduler_thread = None
+scheduler_pid = None
+scheduler_start_minute = None
+scheduler_last_check = None
+scheduler_error = None
+scheduler_start_lock = threading.Lock()
 
 @contextmanager
 def schedule_lock():
@@ -60,34 +66,62 @@ def apply_schedules(now=None):
                     and saved['fired'].get(item['id']) != now.date().isoformat()):
                 save_json(STATE_PATH, {'status': item['status'], 'message': '', 'return_time': ''})
                 saved['fired'][item['id']] = now.date().isoformat()
+                saved.setdefault('last_runs', {})[item['id']] = now.isoformat()
+                app.logger.info('Schedule %s set status to %s at %s', item['id'], item['status'], now.isoformat())
                 changed = True
         if changed:
             save_json(SCHEDULE_PATH, saved)
 
+def check_schedules():
+    global scheduler_last_check, scheduler_error
+    # A restart must not replay an event from the minute in which it started.
+    now = datetime.now()
+    if now.strftime('%Y-%m-%d %H:%M') == scheduler_start_minute:
+        return
+    try:
+        apply_schedules()
+        scheduler_last_check = now.isoformat()
+        scheduler_error = None
+    except Exception as exc:
+        scheduler_error = str(exc)
+        app.logger.exception('Could not apply schedules')
+
 def scheduler_loop():
-    # Starting during a scheduled minute must not replay an earlier event.
-    previous = datetime.now().strftime('%Y-%m-%d %H:%M')
     while True:
         time.sleep(0.5)
-        now = datetime.now()
-        minute = now.strftime('%Y-%m-%d %H:%M')
-        if minute != previous:
-            previous = minute
-            try:
-                apply_schedules()
-            except Exception:
-                app.logger.exception('Could not apply schedules')
+        check_schedules()
+
+def start_scheduler():
+    global scheduler_thread, scheduler_pid, scheduler_start_minute
+    with scheduler_start_lock:
+        pid = os.getpid()
+        if scheduler_pid != pid:
+            scheduler_start_minute = datetime.now().strftime('%Y-%m-%d %H:%M')
+        if scheduler_pid != pid or scheduler_thread is None or not scheduler_thread.is_alive():
+            scheduler_pid = pid
+            scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True, name='sign-scheduler')
+            scheduler_thread.start()
+
+@app.before_request
+def ensure_scheduler():
+    # Threads do not survive a server fork. Start/recover one in this worker.
+    start_scheduler()
 
 @app.route('/api/schedules', methods=['GET', 'POST'])
 def schedules():
     if not config.get('allow_remote_admin', False) and request.remote_addr not in ('127.0.0.1', '::1'):
         return jsonify({'error': 'Remote administration is disabled'}), 403
     if request.method == 'GET':
+        check_schedules()
         with schedule_lock():
             saved = load_json(SCHEDULE_PATH, {'schedules': []})
         now = schedule_now(saved)
         return jsonify({'schedules': saved['schedules'], 'timezone': saved.get('timezone', ''),
-                        'current_time': now.isoformat(), 'fired': saved.get('fired', {})})
+                        'current_time': now.isoformat(), 'fired': saved.get('fired', {}),
+                        'last_runs': saved.get('last_runs', {}),
+                        'scheduler': {'running': scheduler_thread is not None and scheduler_thread.is_alive(),
+                                      'last_check': scheduler_last_check, 'error': scheduler_error},
+                        'status': load_json(STATE_PATH, DEFAULT_STATE)['status']})
     data = request.get_json(silent=True)
     items = data.get('schedules') if isinstance(data, dict) else None
     if not isinstance(items, list) or len(items) > 100:
@@ -135,7 +169,9 @@ def schedules():
         for item in cleaned:
             if item['time'] == current:
                 fired[item['id']] = today
-        save_json(SCHEDULE_PATH, {'schedules': cleaned, 'fired': fired, 'timezone': saved.get('timezone', '')})
+        last_runs = {key: value for key, value in saved.get('last_runs', {}).items() if key in ids}
+        save_json(SCHEDULE_PATH, {'schedules': cleaned, 'fired': fired,
+                                 'last_runs': last_runs, 'timezone': saved.get('timezone', '')})
     return jsonify({'schedules': cleaned})
 def get_local_ip():
     """Return the primary LAN address used by this Pi, if available."""
@@ -184,6 +220,9 @@ def run_update():
 
 @app.get('/api/state')
 def get_state():
+    # The kiosk polls every two seconds. It can trigger this minute's event
+    # even if a server lifecycle issue stopped the background thread.
+    check_schedules()
     state = load_json(STATE_PATH, DEFAULT_STATE)
     label, subtitle = STATUSES.get(state['status'], STATUSES['in'])
     return jsonify({**state, 'label': label, 'subtitle': subtitle, 'name': config['name'], 'title': config.get('title','')})
@@ -205,7 +244,7 @@ def set_state():
     if request.is_json:
         return jsonify(state)
     return redirect(url_for('admin'))
-threading.Thread(target=scheduler_loop, daemon=True, name='sign-scheduler').start()
+start_scheduler()
 
 if __name__ == '__main__':
     host = '0.0.0.0' if config.get('allow_remote_admin') else '127.0.0.1'

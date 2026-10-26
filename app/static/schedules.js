@@ -11,6 +11,35 @@ let serverTime = 0;
 let timeReceived = 0;
 let serverOffset = '';
 
+function updateScheduleDiagnostics(data) {
+    serverTime = Date.parse(data.current_time);
+    timeReceived = Date.now();
+    serverOffset = data.current_time.slice(-6);
+    const health = data.scheduler || {};
+    const current = buttons.find(button => button.dataset.status === data.status)?.textContent || data.status;
+    document.getElementById('schedulerHealth').textContent = health.error
+        ? `Scheduler error: ${health.error}`
+        : `Current sign: ${current}. ${health.running ? 'Background scheduler running.' : 'Background scheduler unavailable; sign refresh checks are active.'}`;
+    [...scheduleRows.children].forEach(row => {
+        const lastRun = data.last_runs?.[row.dataset.id];
+        row.querySelector('.schedule-last-run').textContent = lastRun
+            ? `Last ran: ${lastRun.replace('T', ' ')}` : 'Has not run yet.';
+    });
+    showScheduleClock();
+}
+
+async function refreshScheduleDiagnostics() {
+    if (!schedulesDialog.open) return;
+    try {
+        const response = await fetch('/api/schedules', {cache: 'no-store'});
+        if (!response.ok) throw new Error('Could not check scheduler.');
+        updateScheduleDiagnostics(await response.json());
+    } catch (error) {
+        document.getElementById('schedulerHealth').textContent = 'Cannot reach scheduler. Check the connection to the sign.';
+    }
+}
+setInterval(refreshScheduleDiagnostics, 2000);
+
 function showScheduleClock() {
     if (!schedulesDialog.open) return;
     const now = new Date(serverTime + Date.now() - timeReceived);
@@ -66,7 +95,10 @@ function addScheduleRow(item = {days: [0, 1, 2, 3, 4], time: '17:00', status: 'o
     remove.type = 'button';
     remove.textContent = 'Remove';
     remove.onclick = () => row.remove();
-    row.append(days, timeLabel, statusLabel, remove);
+    const lastRun = document.createElement('p');
+    lastRun.className = 'schedule-last-run';
+    lastRun.textContent = 'Has not run yet.';
+    row.append(days, timeLabel, statusLabel, remove, lastRun);
     scheduleRows.append(row);
 }
 
@@ -78,9 +110,6 @@ document.getElementById('schedulesButton').onclick = async () => {
         const response = await fetch('/api/schedules', {cache: 'no-store'});
         if (!response.ok) throw new Error('Could not load schedules.');
         const data = await response.json();
-        serverTime = Date.parse(data.current_time);
-        timeReceived = Date.now();
-        serverOffset = data.current_time.slice(-6);
         const timezone = data.timezone || '';
         if (timezone && ![...timezoneSelect.options].some(option => option.value === timezone)) {
             timezoneSelect.add(new Option(timezone, timezone));
@@ -88,7 +117,7 @@ document.getElementById('schedulesButton').onclick = async () => {
         timezoneSelect.value = timezone;
         data.schedules.forEach(addScheduleRow);
         schedulesDialog.showModal();
-        showScheduleClock();
+        updateScheduleDiagnostics(data);
     } catch (error) { alert(error.message); }
 };
 document.getElementById('addSchedule').onclick = () => addScheduleRow();
@@ -112,6 +141,7 @@ document.getElementById('schedulesForm').onsubmit = async event => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not save schedules.');
         schedulesDialog.close();
+        document.getElementById('scheduleNotice').textContent = 'Schedules saved. Status changes will run when their selected time arrives.';
     } catch (error) { scheduleError.textContent = error.message; }
     finally { save.disabled = false; }
 };

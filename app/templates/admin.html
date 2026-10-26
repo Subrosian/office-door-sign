@@ -39,10 +39,12 @@
       </div>
     </div>
     <button type="button" class="schedule-button" id="schedulesButton">Schedules</button>
+    <p id="scheduleNotice" role="status"></p>
     <dialog id="schedulesDialog" aria-labelledby="schedulesTitle">
       <form id="schedulesForm">
         <h2 id="schedulesTitle">Automatic status schedules</h2>
         <p id="scheduleTimezone"></p>
+        <p id="schedulerHealth" role="status"></p>
         <label>Schedule timezone<select id="scheduleTimezoneSelect">
           <option value="">Pi system timezone</option>
         </select></label>
