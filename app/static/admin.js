@@ -18,22 +18,6 @@ statusForm.onsubmit=async e=>{
 	if(r.ok)location.href='/';else alert('Could not update sign.');
 };
 
-updateButton.onclick=async()=>{
-	if(!confirm('Update the Office Door Sign now? The display will restart briefly.'))return;
-	updateButton.disabled=true;
-	updateButton.querySelector('.button-label').textContent='Updating…';
-	try{
-		const r=await fetch('/api/update',{method:'POST'});
-		if(!r.ok){const data=await r.json().catch(()=>({}));throw new Error(data.error||'Could not start update.');}
-		alert('Update started. The sign will restart when the update is complete.');
-		location.href='/';
-	}catch(err){
-		alert(err.message);
-		updateButton.disabled=false;
-		updateButton.querySelector('.button-label').textContent='Update';
-	}
-};
-
 const keyboard=document.getElementById('onscreenKeyboard');
 const keyboardKeys=document.getElementById('keyboardKeys');
 const keyboardFieldLabel=document.getElementById('keyboardFieldLabel');

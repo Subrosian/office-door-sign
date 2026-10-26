@@ -90,8 +90,20 @@ details refresh while the window is open. A confirmation appears after saving.
 
 ## Update
 
+Tap **Update** in the admin screen to download updates and gracefully reload
+the app automatically. The screen shows progress and reloads only after a new
+backend process confirms it is running. Errors stay visible on the page.
+The Pi does not reboot; settings, status, and schedules are kept. Reloading
+uses the existing service account and requires no sudo password or extra
+permissions. This works with the provided Gunicorn/systemd installation.
+
+When upgrading from an older updater, the first click may download the new
+files but fail at the old password-requiring restart step. After downloading
+finishes, click **Update** again: the newly installed update script performs
+the password-free reload.
+
 The admin screen shows the **running version and build** under the app name.
-Version numbering starts at **1.1.0** for this release. The build identifies
+Version numbering began at **1.1.0**; the current release is defined in `VERSION`. The build identifies
 the app's source files, so changes are distinguishable even if the version
 number was not bumped. If files change while the service is running, the
 admin screen shows **Update pending restart** and keeps displaying the old

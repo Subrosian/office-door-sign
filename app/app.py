@@ -7,6 +7,7 @@ import threading
 import time
 import uuid
 import hashlib
+import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from contextlib import contextmanager
@@ -19,14 +20,16 @@ def installed_release():
     except FileNotFoundError:
         version = 'unknown'
     digest = hashlib.sha256(version.encode())
-    for path in sorted((BASE / 'app').rglob('*')):
-        if path.is_file() and path.suffix in ('.py', '.html', '.js', '.css'):
+    paths = list((BASE / 'app').rglob('*')) + list((BASE / 'scripts').rglob('*'))
+    for path in sorted(paths):
+        if path.is_file() and path.suffix in ('.py', '.html', '.js', '.css', '.sh'):
             digest.update(str(path.relative_to(BASE)).encode() + b'\0')
             digest.update(path.read_bytes() + b'\0')
     return {'version': version, 'build': digest.hexdigest()[:12]}
 
 # Capture at process startup: a disk update must not relabel an old worker.
 RUNNING_RELEASE = installed_release()
+RUNNING_INSTANCE = str(uuid.uuid4())
 
 def software_info():
     installed = installed_release()
@@ -36,6 +39,8 @@ def software_info():
 CONFIG_PATH = Path(os.environ.get('OFFICE_SIGN_CONFIG', BASE / 'config.json'))
 STATE_PATH = Path(os.environ.get('OFFICE_SIGN_STATE', BASE / 'state.json'))
 SCHEDULE_PATH = Path(os.environ.get('OFFICE_SIGN_SCHEDULES', BASE / 'schedules.json'))
+UPDATE_STATUS_PATH = Path(os.environ.get('OFFICE_SIGN_UPDATE_STATUS', BASE / 'update-status.json'))
+UPDATE_LOG_PATH = Path('/tmp/office-door-sign-update.log')
 DEFAULT_CONFIG = {"name":"Christopher","title":"","port":8080,"default_status":"in","allow_remote_admin":False}
 DEFAULT_STATE = {"status":"in","message":"","return_time":""}
 STATUSES = {
@@ -241,31 +246,57 @@ def admin():
 def get_version():
     return jsonify(software_info())
 
-@app.post('/api/update')
+@contextmanager
+def update_lock():
+    UPDATE_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with UPDATE_STATUS_PATH.with_suffix('.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+def update_status():
+    status = load_json(UPDATE_STATUS_PATH, {'status': 'idle'})
+    if status['status'] == 'restarting' and status.get('instance') != RUNNING_INSTANCE:
+        if not software_info()['restart_required']:
+            status.update(status='complete', message='Update complete. The updated app is running.',
+                          version=RUNNING_RELEASE['version'], build=RUNNING_RELEASE['build'])
+            save_json(UPDATE_STATUS_PATH, status)
+    if status['status'] in ('updating', 'restarting') and time.time() - status.get('started_at', 0) > 600:
+        status.update(status='failed', message='The update did not finish within 10 minutes. Check /tmp/office-door-sign-update.log.')
+        save_json(UPDATE_STATUS_PATH, status)
+    return status
+
+@app.route('/api/update', methods=['GET', 'POST'])
 def run_update():
     if not config.get('allow_remote_admin', False) and request.remote_addr not in ('127.0.0.1', '::1'):
         return jsonify({'error':'Remote administration is disabled'}), 403
 
-    update_script = BASE / 'scripts' / 'update.sh'
-    if not update_script.is_file():
+    if request.method == 'GET':
+        with update_lock():
+            return jsonify(update_status())
+    runner = BASE / 'scripts' / 'update_runner.py'
+    if not runner.is_file() or not (BASE / 'scripts' / 'update.sh').is_file():
         return jsonify({'error':'Update script not found'}), 404
 
-    # Run detached because update.sh restarts this service as its final step.
-    # Waiting for it here would cause the HTTP request to disappear mid-update.
-    log_path = Path('/tmp/office-door-sign-update.log')
-    try:
-        log = log_path.open('w')
-        subprocess.Popen(
-            [str(update_script)],
-            cwd=BASE,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-    except OSError as exc:
-        return jsonify({'error':f'Could not start update: {exc}'}), 500
-
-    return jsonify({'status':'started'})
+    # Keep the runner outside the worker's lifetime so it can report failures
+    # and survive the graceful reload it initiates.
+    with update_lock():
+        current = update_status()
+        if current['status'] in ('updating', 'restarting'):
+            return jsonify({'error': 'An update is already running'}), 409
+        token = str(uuid.uuid4())
+        pending = {'token': token, 'instance': RUNNING_INSTANCE, 'status': 'updating',
+                   'message': 'Downloading and installing updates…', 'started_at': time.time()}
+        save_json(UPDATE_STATUS_PATH, pending)
+        try:
+            with UPDATE_LOG_PATH.open('w') as log:
+                subprocess.Popen(
+                    [sys.executable, str(runner), '--status', str(UPDATE_STATUS_PATH), '--token', token],
+                    cwd=BASE, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        except OSError as exc:
+            pending.update(status='failed', message=f'Could not start update: {exc}')
+            save_json(UPDATE_STATUS_PATH, pending)
+            return jsonify({'error': pending['message']}), 500
+    return jsonify(pending), 202
 
 @app.get('/api/state')
 def get_state():

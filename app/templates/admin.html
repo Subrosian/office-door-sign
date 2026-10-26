@@ -35,6 +35,7 @@
         </button>
       </div>
     </div>
+    <p id="updateNotice" role="status" hidden></p>
     {% if software is defined and software.restart_required %}
     <p class="version-warning" role="status">Update pending restart: installed version {{ software.installed_version }}
       (build {{ software.installed_build }}). The running version shown above will change after restarting the service.</p>
@@ -88,6 +89,7 @@
     <div class="keyboard-keys" id="keyboardKeys"></div>
   </div>
   <script src="{{ asset_url('admin.js') }}"></script>
+  <script src="{{ asset_url('update.js') }}"></script>
   <script src="{{ asset_url('schedules.js') }}"></script>
 </body>
 </html>
