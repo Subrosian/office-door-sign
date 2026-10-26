@@ -11,6 +11,13 @@
     <div class="admin-header">
       <div class="admin-heading">
         <h1>Office Door Sign</h1>
+        <p class="software-version">
+          {% if software is defined %}
+          Version <strong>{{ software.version }}</strong> · Build {{ software.build }}
+          {% else %}
+          Version unavailable. Restart the service and reload this page.
+          {% endif %}
+        </p>
         <p class="hint">Choose a status, optionally add a message or return time.</p>
       </div>
       <div class="admin-actions">
@@ -28,6 +35,10 @@
         </button>
       </div>
     </div>
+    {% if software is defined and software.restart_required %}
+    <p class="version-warning" role="status">Update pending restart: installed version {{ software.installed_version }}
+      (build {{ software.installed_build }}). The running version shown above will change after restarting the service.</p>
+    {% endif %}
     <div class="device-info">
       <div>
         <span>Device IP</span>

@@ -11,6 +11,28 @@ from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from contextlib import contextmanager
 BASE = Path(__file__).resolve().parent.parent
+
+def installed_release():
+    """Identify shipped app files, including installations without Git."""
+    try:
+        version = (BASE / 'VERSION').read_text().strip() or 'unknown'
+    except FileNotFoundError:
+        version = 'unknown'
+    digest = hashlib.sha256(version.encode())
+    for path in sorted((BASE / 'app').rglob('*')):
+        if path.is_file() and path.suffix in ('.py', '.html', '.js', '.css'):
+            digest.update(str(path.relative_to(BASE)).encode() + b'\0')
+            digest.update(path.read_bytes() + b'\0')
+    return {'version': version, 'build': digest.hexdigest()[:12]}
+
+# Capture at process startup: a disk update must not relabel an old worker.
+RUNNING_RELEASE = installed_release()
+
+def software_info():
+    installed = installed_release()
+    return {**RUNNING_RELEASE, 'installed_version': installed['version'],
+            'installed_build': installed['build'], 'restart_required': installed != RUNNING_RELEASE}
+
 CONFIG_PATH = Path(os.environ.get('OFFICE_SIGN_CONFIG', BASE / 'config.json'))
 STATE_PATH = Path(os.environ.get('OFFICE_SIGN_STATE', BASE / 'state.json'))
 SCHEDULE_PATH = Path(os.environ.get('OFFICE_SIGN_SCHEDULES', BASE / 'schedules.json'))
@@ -212,7 +234,13 @@ def sign():
 
 @app.get('/admin')
 def admin():
-    return render_template('admin.html', config=config, statuses=STATUSES, local_ip=get_local_ip(), port=int(config.get('port', 8080)))
+    return render_template('admin.html', config=config, statuses=STATUSES, local_ip=get_local_ip(),
+                           port=int(config.get('port', 8080)), software=software_info())
+
+@app.get('/api/version')
+def get_version():
+    return jsonify(software_info())
+
 @app.post('/api/update')
 def run_update():
     if not config.get('allow_remote_admin', False) and request.remote_addr not in ('127.0.0.1', '::1'):

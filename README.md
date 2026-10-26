@@ -90,6 +90,18 @@ details refresh while the window is open. A confirmation appears after saving.
 
 ## Update
 
+The admin screen shows the **running version and build** under the app name.
+Version numbering starts at **1.1.0** for this release. The build identifies
+the app's source files, so changes are distinguishable even if the version
+number was not bumped. If files change while the service is running, the
+admin screen shows **Update pending restart** and keeps displaying the old
+running version until the service restarts. Reload the page after restarting.
+The same information is available at `/api/version`.
+
+For future releases, update the root `VERSION` file using `MAJOR.MINOR.PATCH`:
+increment patch for fixes, minor for new features, and major for incompatible
+changes. Configuration, saved status, and schedules do not affect the build.
+
 ```bash
 ~/office-door-sign/scripts/update.sh
 ```
