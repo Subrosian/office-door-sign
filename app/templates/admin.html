@@ -38,6 +38,21 @@
         <strong>{% if local_ip != 'Unavailable' %}http://{{ local_ip }}:{{ port }}/admin{% else %}Unavailable{% endif %}</strong>
       </div>
     </div>
+    <button type="button" class="schedule-button" id="schedulesButton">Schedules</button>
+    <dialog id="schedulesDialog" aria-labelledby="schedulesTitle">
+      <form id="schedulesForm">
+        <h2 id="schedulesTitle">Automatic status schedules</h2>
+        <p id="scheduleTimezone"></p>
+        <p>Runs once when the selected time arrives. Missed times are skipped. Scheduled changes clear the message and return time.</p>
+        <div id="scheduleRows"></div>
+        <p id="scheduleError" role="alert"></p>
+        <div class="schedule-actions">
+          <button type="button" id="addSchedule">Add schedule</button>
+          <button type="button" id="cancelSchedules">Cancel</button>
+          <button type="submit" id="saveSchedules">Save schedules</button>
+        </div>
+      </form>
+    </dialog>
     <form id="statusForm">
       <div class="status-grid">
         {% for key, val in statuses.items() %}
@@ -57,5 +72,6 @@
     <div class="keyboard-keys" id="keyboardKeys"></div>
   </div>
   <script src="/static/admin.js"></script>
+  <script src="/static/schedules.js"></script>
 </body>
 </html>

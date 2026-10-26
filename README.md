@@ -9,6 +9,7 @@ A touchscreen-friendly in-office / out-of-office door sign for Raspberry Pi 5 an
 - State survives reboot
 - Touch-friendly 1024×600 interface
 - Local `/admin` control screen
+- Weekly automatic status schedules from the admin screen
 - systemd-managed web service
 - Chromium kiosk startup
 - One-command installation from GitHub
@@ -61,6 +62,22 @@ sudo systemctl restart office-sign.service
 The display is at `http://127.0.0.1:8080/`. Tap the subtle gear in the lower-right corner to open `/admin`, choose a status, add an optional message/return time, and tap the **Save** button at the top of the screen. Tap **Cancel** to return to the sign without saving. Tap **Update** to run `scripts/update.sh`; the display will restart briefly when the update finishes.
 
 `allow_remote_admin` defaults to `false`, so the app binds only to localhost. Remote/LAN administration is intentionally not enabled in v1 because it should have authentication before being exposed to the network.
+
+## Automatic schedules
+
+In `/admin`, tap **Schedules**, then **Add schedule**. Choose the days, time,
+and status, then tap **Save schedules**. New rows default to **Out of Office**
+at **5:00 PM, Monday through Friday**. You can edit or remove rows in the same
+window; Cancel discards schedule edits. Schedules save separately from the
+main status form.
+
+Times use the Raspberry Pi's configured local timezone. The backend runs each
+event once when its minute arrives, even if the admin screen is closed. It
+does not replay missed times after downtime or apply schedules immediately
+when saved. A manual status change remains until another scheduled event.
+Scheduled changes clear the message and return time. Conflicting schedules
+for the same day and time are rejected. Schedules survive restarts in
+`schedules.json` (override with `OFFICE_SIGN_SCHEDULES`).
 
 ## Update
 
